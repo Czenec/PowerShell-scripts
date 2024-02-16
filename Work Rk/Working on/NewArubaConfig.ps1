@@ -45,6 +45,21 @@ function New-ArubaConfigFile {
         [System.String]
         $managementVLAN = '1',
 
+        [Alias("MVlanName","MVN")]
+        [Parameter(Mandatory = $false, Position = 7)]
+        [System.String]
+        $managementVLANName = $managementVLAN,
+
+        [Alias("Untagged","IUV")]
+        [Parameter(Mandatory = $false, Position = 8)]
+        [System.String]
+        $interfaceUntaggedVLAN,
+
+        [Alias("Tagged","ITV")]
+        [Parameter(Mandatory = $false, Position = 9)]
+        [System.String]
+        $interfaceTaggedVLAN,
+
         <##>
         
         [Parameter(Mandatory = $false, Position = 20)]
@@ -54,32 +69,32 @@ function New-ArubaConfigFile {
 
     # Hashtable to map switch codes to descriptions
     $switchTable = @{
-        'JL810A' = 'Aruba Instant On 1830 8G Switch JL810A'
-        'JL811A' = 'Aruba Instant On 1830 8G 4p Class4 PoE 65W Switch JL811A'
-        'JL812A' = 'Aruba Instant On 1830 24G 2SFP Switch JL812A'
-        'JL813A' = 'Aruba Instant On 1830 24G 12p Class4 PoE 2SFP 195W Switch JL813A'
-        'JL814A' = 'Aruba Instant On 1830 48G 4SFP Switch JL814A'
-        'JL815A' = 'Aruba Instant On 1830 48G 24p Class4 PoE 4SFP 370W Switch JL815A'
+        'JL810A' = 'Aruba Instant On 1830 8G Switch JL810A'                             # 4 TRK ports       Group 1
+        'JL811A' = 'Aruba Instant On 1830 8G 4p Class4 PoE 65W Switch JL811A'           # 4 TRK ports       Group 1
+        'JL812A' = 'Aruba Instant On 1830 24G 2SFP Switch JL812A'                       # 8 TRK ports       Group 2
+        'JL813A' = 'Aruba Instant On 1830 24G 12p Class4 PoE 2SFP 195W Switch JL813A'   # 8 TRK ports(?)    Group 2
+        'JL814A' = 'Aruba Instant On 1830 48G 4SFP Switch JL814A'                       # 16 TRK ports      Group 5
+        'JL815A' = 'Aruba Instant On 1830 48G 24p Class4 PoE 4SFP 370W Switch JL815A'   # 16 TRK ports      Group 5
 
-        'JL680A' = 'Aruba Instant On 1930 8G 2SFP Switch JL680A'
-        'JL681A' = 'Aruba Instant On 1930 8G Class4 PoE 2SFP 124W Switch JL681A'
-        'JL682A' = 'Aruba Instant On 1930 24G 4SFP/SFP+ Switch JL682A'
-        'JL683A' = 'Aruba Instant On 1930 24G Class4 PoE 4SFP/SFP+ 195W Switch JL683A'
-        'JL683B' = 'Aruba Instant On 1930 24G Class4 PoE 4SFP/SFP+ 195W Switch JL683B'
-        'JL684A' = 'Aruba Instant On 1930 24G Class4 PoE 4SFP/SFP+ 370W Switch JL684A'
-        'JL684B' = 'Aruba Instant On 1930 24G Class4 PoE 4SFP/SFP+ 370W Switch JL684B'
-        'JL685A' = 'Aruba Instant On 1930 48G 4SFP/SFP+ Switch JL685A'
-        'JL686A' = 'Aruba Instant On 1930 48G Class4 PoE 4SFP/SFP+ 370W Switch JL686A'
-        'JL686B' = 'Aruba Instant On 1930 48G Class4 PoE 4SFP/SFP+ 370W Switch JL686B'
-
+        'JL680A' = 'Aruba Instant On 1930 8G 2SFP Switch JL680A'                        # 4 TRK ports       Group 3
+        'JL681A' = 'Aruba Instant On 1930 8G Class4 PoE 2SFP 124W Switch JL681A'        # 4 TRK ports       Group 3
+        'JL682A' = 'Aruba Instant On 1930 24G 4SFP/SFP+ Switch JL682A'                  # 8 TRK ports       Group 4
+        'JL683A' = 'Aruba Instant On 1930 24G Class4 PoE 4SFP/SFP+ 195W Switch JL683A'  # 8 TRK ports       Group 4
+        'JL683B' = 'Aruba Instant On 1930 24G Class4 PoE 4SFP/SFP+ 195W Switch JL683B'  # 8 TRK ports       Group 4
+        'JL684A' = 'Aruba Instant On 1930 24G Class4 PoE 4SFP/SFP+ 370W Switch JL684A'  # 8 TRK ports       Group 4
+        'JL684B' = 'Aruba Instant On 1930 24G Class4 PoE 4SFP/SFP+ 370W Switch JL684B'  # 8 TRK ports       Group 4
+        'JL685A' = 'Aruba Instant On 1930 48G 4SFP/SFP+ Switch JL685A'                  # 16 TRK ports      Group 5
+        'JL686A' = 'Aruba Instant On 1930 48G Class4 PoE 4SFP/SFP+ 370W Switch JL686A'  # 16 TRK ports      Group 5
+        'JL686B' = 'Aruba Instant On 1930 48G Class4 PoE 4SFP/SFP+ 370W Switch JL686B'  # 16 TRK ports      Group 5
+<#
         'JL805A' = 'Aruba Instant On 1960 12XGT 4SFP+ Switch JL805A'
         'JL806A' = 'Aruba Instant On 1960 24G 2XGT 2SFP+ Switch JL806A'
         'JL807A' = 'Aruba Instant On 1960 24G 20p Class4 4p Class6 PoE 2XGT 2SFP+ 370W Switch JL807A'
         'JL808A' = 'Aruba Instant On 1960 48G 2XGT 2SFP+ Switch JL808A'
         'JL809A' = 'Aruba Instant On 1960 48G 40p Class4 8p Class6 PoE 2XGT 2SFP+ 600W Switch JL809A'
         'S0F35A' = 'Aruba Instant On 1960 8p 1G Class 4 4p SR1G/2.5G Class 6 PoE 2p 10GBASE-T 2p SFP+ 480W Switch S0F35A'
-        # Add more switch codes and descriptions as needed
-    }
+#>
+    } # Add more switch codes and descriptions as needed
 
     # Retrieve the description based on the provided switch code
     $switchDescription = $switchTable[$switch]
@@ -91,36 +106,82 @@ function New-ArubaConfigFile {
     }
 
 
-    foreach ($v in $vlan) {
-        $UntagedVLAN += Read-Host "What interfaces shuld be untaged on vlan $v"
+    # Tells the script how many interfaces should be printed
+        # 8 Interface
+        # 0 Fiber
+        # 4 TRK
+    if ($switch -in 'JL810A', 'JL811A') { # Group 1
+        $interfaceAmount = 8
+        $fiberAmount = 0
+        $TRKAmount = 4
     }
+        # 24 Interface
+        # 2 Fiber
+        # 8 TRK
+    if ($switch -in 'JL812A', 'JL813A') { # Group 2
+        $interfaceAmount = 24
+        $fiberAmount = 2
+        $TRKAmount = 8
+    }
+
+        # 8 Interface
+        # 2 Fiber
+        # 4 TRK
+    if ($switch -in 'JL680A', 'JL681A') { # Group 3
+        $interfaceAmount = 8
+        $fiberAmount = 2
+        $TRKAmount = 4
+    }
+        # 24 Interface
+        # 4 Fiber
+        # 8 TRK
+    if ($switch -in 'JL682A', 'JL683A', 'JL683B', 'JL684A', 'JL684B') { # Group 4
+        $interfaceAmount = 24
+        $fiberAmount = 4
+        $TRKAmount = 8
+    }
+
+        # 48 Interface
+        # 4 Fiber
+        # 16 TRK
+    if ($switch -in 'JL814A', 'JL815A', 'JL685A', 'JL686A', 'JL686B') { # Group 5
+        $interfaceAmount = 48
+        $fiberAmount = 4
+        $TRKAmount = 16
+    }
+
 
 
 
     Write-Host "
     $switch
     $switchDescription
+    $interfaceAmount
     $IP
     $subnet
     $gateway
     $hostname
 
+
     $vlan
     $managementVLAN
-
-    $UntagedVLAN
-    $TagedVLAN
+    $interfaceUntaggedVLAN
+    $interfaceTaggedVLAN
     "
 
 
-
-
+    $interfaceVLAN =
+"interface vlan $managementVLAN
+ name $managementVLANName
+ ip address $IP $subnet
+ no ip address dhcp
+!"
 
     # Output other VLAN dynamically using a loop
     foreach ($v in $vlan) {
         # Skip management VLAN if it was already handled
         if ($v -eq $managementVLAN) { 
-            $interfaceVLAN =
+            $interfaceVLAN +=
 "interface vlan $managementVLAN
  name $managementVLAN
  ip address $IP $subnet
@@ -133,75 +194,117 @@ function New-ArubaConfigFile {
 interface vlan $v
  name $v
 !"
-        }}
+        }
+    }
 
 
-    # Interface 1 to 10 is for 8 port switches, port 9 and 10 are virtual and used by some additional funktions.
-    $interface1_10 =
-"interface 1
- loopback-detection enable 
- switchport general allowed vlan add 269 untagged 
- switchport general pvid 269 
-!
-interface 2
- loopback-detection enable 
- switchport general allowed vlan add 269 untagged 
- switchport general pvid 269 
-!
-interface 3
- loopback-detection enable 
- switchport general allowed vlan add 269 untagged 
- switchport general pvid 269 
-!
-interface 4
- loopback-detection enable 
- switchport general allowed vlan add 269 untagged 
- switchport general pvid 269 
-!
-interface 5
- loopback-detection enable 
- switchport general allowed vlan add 269 untagged 
- switchport general pvid 269 
-!
-interface 6
- loopback-detection enable 
- switchport general allowed vlan add 269 untagged 
- switchport general pvid 269 
-!
-interface 7
- loopback-detection enable 
- switchport general allowed vlan add 269 untagged 
- switchport general pvid 269 
-!
-interface 8
- loopback-detection enable 
- switchport general allowed vlan add 269 tagged 
-!
-interface 9
- loopback-detection enable 
-!
-interface 10
- loopback-detection enable 
-!"
+    $defaultVlan = '1'
 
-    $interfaceTRK1_TRK4 =
-"interface TRK1
- loopback-detection enable 
-!
-interface TRK2
- loopback-detection enable 
-!
-interface TRK3
- loopback-detection enable 
-!
-interface TRK4
- loopback-detection enable 
-!"
+    # Split VLANs and interface configurations
+    $vlanArray = $vlan -split ','
+    $interfaceUntaggedVLANArray = $interfaceUntaggedVLAN -split '\|'
+    $interfaceTaggedVLANArray = $interfaceTaggedVLAN -split '\|'
 
-    #Write-Host $interfaceManagementVLAN
-    #Write-Host $interfaceVLAN
-    #Write-Host $interface1_10
-    #Write-Host $interfaceTRK1_TRK4
+    # Initialize an empty hashtable template for interface configurations
+    $interfaceConfigTemplate = @{
+        'untaggedVlans' = @()
+        'taggedVlans' = @()
+        'pvid' = ''
+    }
+
+    # Initialize an empty hashtable to store the configuration for each interface
+    $configurations = @{}
+
+    # Loop through each untagged VLAN configuration
+    for ($i = 0; $i -lt $interfaceUntaggedVLANArray.Length; $i++) {
+        $interfacesUntagged = $interfaceUntaggedVLANArray[$i] -split ','
+        foreach ($interface in $interfacesUntagged) {
+            $vlanForInterface = $vlanArray[$i]
+            if (-not $configurations.ContainsKey($interface)) {
+                $configurations[$interface] = $interfaceConfigTemplate.Clone()
+            }
+            $configurations[$interface]['untaggedVlans'] += $vlanForInterface
+            $configurations[$interface]['pvid'] = $vlanForInterface
+        }
+    }
+
+    # Loop through each tagged VLAN configuration
+    for ($i = 0; $i -lt $interfaceTaggedVLANArray.Length; $i++) {
+        $interfacesTagged = $interfaceTaggedVLANArray[$i] -split ','
+        foreach ($interface in $interfacesTagged) {
+            $vlanForInterface = $vlanArray[$i]
+            if (-not $configurations.ContainsKey($interface)) {
+                $configurations[$interface] = $interfaceConfigTemplate.Clone()
+            }
+            $configurations[$interface]['taggedVlans'] += $vlanForInterface
+            if ($configurations[$interface]['pvid'] -eq '1') {
+                $configurations[$interface]['pvid'] = $vlanForInterface
+            }
+        }
+    }
+
+    # If pvid is not set, use the last tagged VLAN
+    foreach ($interfaceConfig in $configurations.Values) {
+        if ($interfaceConfig['pvid'] -eq '1' -and $interfaceConfig['taggedVlans'].Count -gt 0) {
+            $interfaceConfig['pvid'] = $interfaceConfig['taggedVlans'][-1]
+        }
+    }
+
+    # Generate the final configuration string
+    $interfacesConfig = ""
+    $keys = $configurations.Keys | Sort-Object {[int]$_}
+
+    for ($i = 1; $i -le $interfaceAmount + $fiberAmount; $i++) {
+        if ($keys -contains "$i") {
+            $interface = $keys | Where-Object {$_ -eq "$i"}
+            $interfacesConfig += "interface $interface`n"
+            $interfacesConfig += " loopback-detection enable`n"
+
+            $interfacesConfig += " switchport general allowed vlan add "
+            foreach ($index in 0..($configurations[$interface]['untaggedVlans'].Count - 1)) {
+                $vlan = $configurations[$interface]['untaggedVlans'][$index]
+                $interfacesConfig += "$vlan"
+                if ($index -lt ($configurations[$interface]['untaggedVlans'].Count - 1)) {
+                    $interfacesConfig += ","
+                }
+            }            
+            $interfacesConfig += " untagged`n"
+
+            $interfacesConfig += " switchport general allowed vlan add "
+            foreach ($index in 0..($configurations[$interface]['taggedVlans'].Count - 1)) {
+                $vlan = $configurations[$interface]['taggedVlans'][$index]
+                $interfacesConfig += "$vlan"
+                if ($index -lt ($configurations[$interface]['taggedVlans'].Count - 1)) {
+                    $interfacesConfig += ","
+                }
+            }            
+            $interfacesConfig += " tagged`n"
+            $interfacesConfig += " switchport general pvid $($configurations[$interface]['pvid'])`n!`n"
+        }
+        elseif ($i -le $interfaceAmount) {
+            $interfacesConfig += "interface $i`n"
+            $interfacesConfig += " loopback-detection enable`n"
+            $interfacesConfig += " switchport general allowed vlan add $defaultVlan untagged`n!`n"
+        }
+        elseif ($i -le $interfaceAmount + $fiberAmount) {
+            $interfacesConfig += "interface $i`n"
+            $interfacesConfig += " loopback-detection enable`n!`n"
+        }
+    }
+    
+    for ($i = 1; $i -le $TRKAmount; $i++) {
+        $interfacesConfig += "interface TRK$i`n"
+        $interfacesConfig += " loopback-detection enable`n!"
+        if ($i -lt $TRKAmount) {
+            $interfacesConfig += "`n"
+        }
+    }
+
+
+    if (0 -cne $gateway) {
+        $gatewayConfig = "ip default-gateway $gateway `n"
+    }
+
 
     $outputConfig = 
 "config-file-header
@@ -215,7 +318,7 @@ unit-type unit 1 network gi uplink none
 unit-type-control-end 
 !
 vlan database
-vlan $($vlan -join ',' -replace ',$','')
+vlan $($vlan -join ',')
 exit
 loopback-detection enable 
 hostname $hostname
@@ -223,16 +326,14 @@ username admin password encrypted 016e56fb9559698dd1e910878839b91085b6126a privi
 management vlan $managementVLAN 
 !
 $interfaceVLAN
-$interface1_10
-$interfaceTRK1_TRK4
+$interfacesConfig
 exit
-
-"
+$gatewayConfig"
 
 
     #$outputConfig | Out-File -FilePath C:\Users\chrlang\Downloads -Force
     $outputConfig | Write-Host
 
-  }
+}
 
-New-ArubaConfigFile -switch JL810A -IP 10.10.10.1 -subnet 255.255.0.0 -hostName REEEEEEEEEEEEEEE -vlan 1, 2,3,44
+New-ArubaConfigFile -switch JL682A -IP 10.10.10.1 -subnet 255.255.0.0 -hostName REEEEEEEEEEEEEEE -vlan 3, 50,249 -Tagged "3|4,6,9|1,5,9" -Untagged "3|4,6,9|1,5,9" -gateway 684.4864.846.684 -managementVLAN 50
