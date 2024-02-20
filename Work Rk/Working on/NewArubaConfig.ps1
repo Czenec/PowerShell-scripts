@@ -26,14 +26,15 @@ function New-ArubaConfigFile {
         [Parameter(Mandatory = $true, Position = 2)]
         [System.String]
         $subnet,
+
+        [Parameter(Mandatory = $true, Position = 3)]
+        [System.String]
+        $hostName,
     
-        [Parameter(Mandatory = $false, Position = 3)]
+        [Parameter(Mandatory = $false, Position = 4)]
         [System.String]
         $gateway,
 
-        [Parameter(Mandatory = $true, Position = 4)]
-        [System.String]
-        $hostName,
 
         <##>
 
@@ -41,6 +42,7 @@ function New-ArubaConfigFile {
         [System.Object]
         $vlan =  '1',
 
+        [Alias("MVlan","MV")]
         [Parameter(Mandatory = $false, Position = 6)]
         [System.String]
         $managementVLAN = '1',
@@ -64,7 +66,7 @@ function New-ArubaConfigFile {
         
         [Parameter(Mandatory = $false, Position = 20)]
         [System.String]
-        $outPath
+        $outPath = "$env:USERPROFILE\Downloads\ArubaConfig"
     )
 
     # Hashtable to map switch codes to descriptions
@@ -152,22 +154,22 @@ function New-ArubaConfigFile {
 
 
 
-
+<#
     Write-Host "
-    $switch
-    $switchDescription
-    $interfaceAmount
-    $IP
-    $subnet
-    $gateway
-    $hostname
+    switch:                 $switch
+    switch Description:     $switchDescription
+    Interface Amount:       $interfaceAmount
+    IP address:             $IP
+    subnet:                 $subnet
+    gateway:                $gateway
+    hostname:               $hostname
 
 
-    $vlan
-    $managementVLAN
-    $interfaceUntaggedVLAN
-    $interfaceTaggedVLAN
-    "
+    VLAN:                   $vlan
+    Management VLAN:        $managementVLAN
+    Untagged VLAN ports:    $interfaceUntaggedVLAN
+    Tagged VLAN ports:      $interfaceTaggedVLAN
+    "#>
 
 
     $interfaceVLAN =
@@ -181,12 +183,12 @@ function New-ArubaConfigFile {
     foreach ($v in $vlan) {
         # Skip management VLAN if it was already handled
         if ($v -eq $managementVLAN) { 
-            $interfaceVLAN +=
+<#            $interfaceVLAN +=
 "interface vlan $managementVLAN
  name $managementVLAN
  ip address $IP $subnet
  no ip address dhcp
-!"
+!"#>
         continue
         } else {
         $interfaceVLAN +=
@@ -254,7 +256,7 @@ interface vlan $v
     $interfacesConfig = ""
     $keys = $configurations.Keys | Sort-Object {[int]$_}
 
-    for ($i = 1; $i -le $interfaceAmount + $fiberAmount; $i++) {
+    for ($i = 1; $i -le ($interfaceAmount + $fiberAmount); $i++) {
         if ($keys -contains "$i") {
             $interface = $keys | Where-Object {$_ -eq "$i"}
             $interfacesConfig += "interface $interface`n"
@@ -281,14 +283,14 @@ interface vlan $v
             $interfacesConfig += " tagged`n"
             $interfacesConfig += " switchport general pvid $($configurations[$interface]['pvid'])`n!`n"
         }
+        elseif ($i -le ($interfaceAmount + $fiberAmount)) {
+            $interfacesConfig += "interface $i`n"
+            $interfacesConfig += " loopback-detection enable`n!`n"
+        }
         elseif ($i -le $interfaceAmount) {
             $interfacesConfig += "interface $i`n"
             $interfacesConfig += " loopback-detection enable`n"
             $interfacesConfig += " switchport general allowed vlan add $defaultVlan untagged`n!`n"
-        }
-        elseif ($i -le $interfaceAmount + $fiberAmount) {
-            $interfacesConfig += "interface $i`n"
-            $interfacesConfig += " loopback-detection enable`n!`n"
         }
     }
     
@@ -331,9 +333,125 @@ exit
 $gatewayConfig"
 
 
-    #$outputConfig | Out-File -FilePath C:\Users\chrlang\Downloads -Force
     $outputConfig | Write-Host
+    $outputConfig | Out-File -FilePath $outPath
 
 }
 
-New-ArubaConfigFile -switch JL682A -IP 10.10.10.1 -subnet 255.255.0.0 -hostName REEEEEEEEEEEEEEE -vlan 3, 50,249 -Tagged "3|4,6,9|1,5,9" -Untagged "3|4,6,9|1,5,9" -gateway 684.4864.846.684 -managementVLAN 50
+#<#
+$default = "default value" # a normal number is writen without parentheses
+$switchQuestion = $(Write-Host "`nWhat switch do you want a config for?  " -ForegroundColor Blue -NoNewline; Read-Host)
+if ([string]::IsNullOrWhiteSpace($switchQuestion)) {
+    $switchQuestion = $default
+}
+Write-Host "
+--------------------------------------------------------------------------------------
+"
+$default = "192.168.0.1" # a normal number is writen without parentheses
+$iPQuestion = $(Write-Host "`nWhat should it's IP be?`nExample: 10.10.10.1  " -ForegroundColor Blue -NoNewline; Read-Host)
+if ([string]::IsNullOrWhiteSpace($iPQuestion)) {
+    $iPQuestion = $default
+}
+Write-Host "
+--------------------------------------------------------------------------------------
+"
+$default = "255.255.0.0" # a normal number is writen without parentheses
+$subnetQuestion = $(Write-Host "`nWhat should it's subnet mask?  " -ForegroundColor Blue -NoNewline; Read-Host)
+if ([string]::IsNullOrWhiteSpace($subnetQuestion)) {
+    $subnetQuestion = $default
+}
+Write-Host "
+--------------------------------------------------------------------------------------
+"
+$default = "default value" # a normal number is writen without parentheses
+$nameQuestion = $(Write-Host "`nWhat should it's name be?  " -ForegroundColor Blue -NoNewline; Read-Host)
+if ([string]::IsNullOrWhiteSpace($nameQuestion)) {
+    $nameQuestion = $default
+}
+Write-Host "
+--------------------------------------------------------------------------------------
+"
+$default = "default value" # a normal number is writen without parentheses
+$gatewayQuestion = $(Write-Host "`nWhat should it's gateway be?  " -ForegroundColor Blue -NoNewline; Read-Host)
+if ([string]::IsNullOrWhiteSpace($gatewayQuestion)) {
+    $gatewayQuestion = $default
+}
+Write-Host "
+--------------------------------------------------------------------------------------
+"
+
+$default = 1 # a normal number is writen without parentheses
+$vlanQuestion = $(Write-Host "`nWhat VLAN should be configured on it?`nExample: 3,50,249  " -ForegroundColor Blue -NoNewline; Read-Host)
+if ([string]::IsNullOrWhiteSpace($vlanQuestion)) {
+    $vlanQuestion = $default
+}
+Write-Host "
+--------------------------------------------------------------------------------------
+"
+$default = 1 # a normal number is writen without parentheses
+$managementVLANQuestion = $(Write-Host "`nWhat VLAN should act as management VLAN?  " -ForegroundColor Blue -NoNewline; Read-Host)
+if ([string]::IsNullOrWhiteSpace($managementVLANQuestion)) {
+    $managementVLANQuestion = $default
+}
+Write-Host "
+--------------------------------------------------------------------------------------
+"
+$default = "" # a normal number is writen without parentheses
+$untaggedQuestion = $(Write-Host "`nWhat interfaces shuold be untagged with VLAN?`nExample: 3|4,6,9|1,5,9  " -ForegroundColor Blue -NoNewline; Read-Host)
+if ([string]::IsNullOrWhiteSpace($untaggedQuestion)) {
+    $untaggedQuestion = $default
+}
+Write-Host "
+--------------------------------------------------------------------------------------
+"
+$default = "" # a normal number is writen without parentheses
+$taggedQuestion = $(Write-Host "`nWhat interfaces shuold be tagged with VLAN?`nExample: 3|4,6,9|1,5,9  " -ForegroundColor Blue -NoNewline; Read-Host)
+if ([string]::IsNullOrWhiteSpace($taggedQuestion)) {
+    $taggedQuestion = $default
+}
+Write-Host "
+--------------------------------------------------------------------------------------
+"
+
+$default = "$env:USERPROFILE\Downloads\ArubaConfig" # a normal number is writen without parentheses
+$outpathQuestion = $(Write-Host "`nWhere should the output file be saved?`nDefault: C:\users\USERNAME\downloads\ArubaConfig  " -ForegroundColor Blue -NoNewline; Read-Host)
+if ([string]::IsNullOrWhiteSpace($outpathQuestion)) {
+    $outpathQuestion = $default
+}
+
+
+<#
+$switchQuestion = $(Write-Host "`nWhat switch do you want a config for?  " -ForegroundColor Blue -NoNewline; Read-Host)
+$IPQuestion = $(Write-Host "`nWhat should it's IP be?`nExample: 10.10.10.1  " -ForegroundColor Blue -NoNewline; Read-Host)
+$subnetQuestion = $(Write-Host "`nWhat should it's subnet mask?  " -ForegroundColor Blue -NoNewline; Read-Host)
+$nameQuestion = $(Write-Host "`nWhat should it's name be?  " -ForegroundColor Blue -NoNewline; Read-Host)
+$gatewayQuestion = $(Write-Host "`nWhat should it's gateway be?  " -ForegroundColor Blue -NoNewline; Read-Host)
+
+$vlanQuestion = $(Write-Host "`nWhat VLAN should be configured on it?`nExample: 3,50,249  " -ForegroundColor Blue -NoNewline; Read-Host)
+$managementVLANQuestion = $(Write-Host "`nWhat VLAN should act as management VLAN?  " -ForegroundColor Blue -NoNewline; Read-Host)
+$untaggedQuestion = $(Write-Host "`nWhat interfaces shuold be untagged with VLAN?`nExample: 3|4,6,9|1,5,9  " -ForegroundColor Blue -NoNewline; Read-Host)
+$taggedQuestion = $(Write-Host "`nWhat interfaces shuold be tagged with VLAN?`nExample: 3|4,6,9|1,5,9  " -ForegroundColor Blue -NoNewline; Read-Host)
+
+$outpathQuestion = $(Write-Host "`nWhere should the output file be saved?`nDefault: C:\users\USERNAME\downloads\ArubaConfig  " -ForegroundColor Blue -NoNewline; Read-Host)
+#>
+
+
+Write-Host "
+$switchQuestion
+$IPQuestion
+$subnetQuestion
+$nameQuestion
+$gatewayQuestion
+
+$vlanQuestion
+$managementVLANQuestion
+$untaggedQuestion
+$taggedQuestion
+
+$outpathQuestion
+"
+
+
+New-ArubaConfigFile -switch $switchQuestion -IP $IPQuestion -subnet $subnetQuestion -hostName $nameQuestion -gateway $gatewayQuestion -vlan $vlanQuestion -managementVLAN $managementVLANQuestion -Untagged $untaggedQuestion -Tagged $taggedQuestion -outPath $outpathQuestion
+
+#New-ArubaConfigFile -switch JL682A -IP 10.10.10.1 -subnet 255.255.0.0 -hostName REEEEEEEEEEEEEEE -vlan 3, 50,249 -Tagged "3|4,6,9|1,5,9" -Untagged "3|4,6,9|1,5,9" -gateway 684.4864.846.684 -managementVLAN 50
