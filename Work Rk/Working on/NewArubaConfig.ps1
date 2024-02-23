@@ -1,48 +1,53 @@
 function New-ArubaConfigFile {
     <#
         .SYNOPSIS
-        Creates an Aruba Config file and saves it.
+        Creates an Aruba Config file and saves it to downloads.
         .DESCRIPTION
-        Creates an Aruba Config file for the Instant On switch you chose.
+        Creates an Aruba Config file for the Instant On switch you chose, the file is then saved to your destination of choice.
         .EXAMPLE
-                New-ArubaConfigFile -switch 1930 -IP 10.0.0.2 -subnett 255.255.0.0
-                this is a placeholder
+        New-ArubaConfigFile -switch JL813A -IP 192.168.1.2 -subnet 255.255.0.0
+        Creates an Aruba Config file for the switch JL813A, the config contains the IP 192.168.1.2 and subnet 255.255.0.0
         .EXAMPLE
-                this is a placeholder
-                this is a placeholder
+        this is a placeholder
+        this is a placeholder
     #>
     
     [CmdletBinding()]
     param
     (
+        [Alias("w")]
         [Parameter(Mandatory = $true, Position = 0)]
         [System.String]
         $switch,
-        
+
+        [Alias("i")]
         [Parameter(Mandatory = $true, Position = 1)]
         [System.String]
         $IP,
-
+        
+        [Alias("s")]
         [Parameter(Mandatory = $true, Position = 2)]
         [System.String]
         $subnet,
 
+        [Alias("n")]
         [Parameter(Mandatory = $true, Position = 3)]
         [System.String]
         $hostName,
-    
+
+        [Alias("g")]
         [Parameter(Mandatory = $false, Position = 4)]
         [System.String]
         $gateway,
 
-
         <##>
 
+        [Alias("v")]
         [Parameter(Mandatory = $false, Position = 5)]
         [System.Object]
         $vlan =  '1',
 
-        [Alias("MVlan","MV")]
+        [Alias("MVlan","MV","m")]
         [Parameter(Mandatory = $false, Position = 6)]
         [System.String]
         $managementVLAN = '1',
@@ -64,10 +69,24 @@ function New-ArubaConfigFile {
 
         <##>
         
-        [Parameter(Mandatory = $false, Position = 20)]
+        [Parameter(Mandatory = $false, Position = 10)]
         [System.String]
         $outPath = "$env:USERPROFILE\Downloads\ArubaConfig"
     )
+
+    if ([string]::IsNullOrWhiteSpace($switch)) {
+        Throw "Switch cannot be empty"
+    }
+    if ([string]::IsNullOrWhiteSpace($IP)) {
+        Throw "IP cannot be empty"
+    }
+    if ([string]::IsNullOrWhiteSpace($subnet)) {
+        Throw "Subnet cannot be empty"
+    }
+    if ([string]::IsNullOrWhiteSpace($hostName)) {
+        Throw "Hostname cannot be empty"
+    }
+
 
     # Hashtable to map switch codes to descriptions
     $switchTable = @{
@@ -103,8 +122,7 @@ function New-ArubaConfigFile {
 
     # Error for if the switch code is invalid
     if ($null -eq $switchDescription) {
-        Write-Host "Unknown switch code: $switch"
-        return
+        Throw "Unknown switch code: $switch"
     }
 
 
@@ -153,36 +171,18 @@ function New-ArubaConfigFile {
     }
 
 
-
-<#
-    Write-Host "
-    switch:                 $switch
-    switch Description:     $switchDescription
-    Interface Amount:       $interfaceAmount
-    IP address:             $IP
-    subnet:                 $subnet
-    gateway:                $gateway
-    hostname:               $hostname
-
-
-    VLAN:                   $vlan
-    Management VLAN:        $managementVLAN
-    Untagged VLAN ports:    $interfaceUntaggedVLAN
-    Tagged VLAN ports:      $interfaceTaggedVLAN
-    "#>
-
-
     $interfaceVLAN =
 "interface vlan $managementVLAN
- name $managementVLANName
- ip address $IP $subnet
- no ip address dhcp
+ name $managementVLANName 
+ ip address $IP $subnet 
+ no ip address dhcp 
 !"
 
     # Output other VLAN dynamically using a loop
     foreach ($v in $vlan) {
         # Skip management VLAN if it was already handled
         if ($v -eq $managementVLAN) { 
+# If you wish to move the interface for the managementVLAN so all VLAN interface are in order, just uncomment this bit of code and comment the block above.
 <#            $interfaceVLAN +=
 "interface vlan $managementVLAN
  name $managementVLAN
@@ -194,7 +194,7 @@ function New-ArubaConfigFile {
         $interfaceVLAN +=
 "
 interface vlan $v
- name $v
+ name $v 
 !"
         }
     }
@@ -202,7 +202,7 @@ interface vlan $v
 
     $defaultVlan = '1'
 
-    # Split VLANs and interface configurations
+    # Split VLAN and interface configurations
     $vlanArray = $vlan -split ','
     $interfaceUntaggedVLANArray = $interfaceUntaggedVLAN -split '\|'
     $interfaceTaggedVLANArray = $interfaceTaggedVLAN -split '\|'
@@ -260,7 +260,7 @@ interface vlan $v
         if ($keys -contains "$i") {
             $interface = $keys | Where-Object {$_ -eq "$i"}
             $interfacesConfig += "interface $interface`n"
-            $interfacesConfig += " loopback-detection enable`n"
+            $interfacesConfig += " loopback-detection enable `n"
 
             $interfacesConfig += " switchport general allowed vlan add "
             foreach ($index in 0..($configurations[$interface]['untaggedVlans'].Count - 1)) {
@@ -270,7 +270,7 @@ interface vlan $v
                     $interfacesConfig += ","
                 }
             }            
-            $interfacesConfig += " untagged`n"
+            $interfacesConfig += " untagged `n"
 
             $interfacesConfig += " switchport general allowed vlan add "
             foreach ($index in 0..($configurations[$interface]['taggedVlans'].Count - 1)) {
@@ -280,23 +280,24 @@ interface vlan $v
                     $interfacesConfig += ","
                 }
             }            
-            $interfacesConfig += " tagged`n"
-            $interfacesConfig += " switchport general pvid $($configurations[$interface]['pvid'])`n!`n"
+            $interfacesConfig += " tagged `n"
+            $interfacesConfig += " switchport general pvid $($configurations[$interface]['pvid']) `n!`n"
         }
         elseif ($i -le ($interfaceAmount + $fiberAmount)) {
             $interfacesConfig += "interface $i`n"
-            $interfacesConfig += " loopback-detection enable`n!`n"
+            $interfacesConfig += " loopback-detection enable `n!`n"
         }
+        # This block is redundant since its never going to run because of the block above, however if you need the output to specifiy when the VLAN is 1, then you can move this block above the one above.
         elseif ($i -le $interfaceAmount) {
             $interfacesConfig += "interface $i`n"
-            $interfacesConfig += " loopback-detection enable`n"
-            $interfacesConfig += " switchport general allowed vlan add $defaultVlan untagged`n!`n"
+            $interfacesConfig += " loopback-detection enable `n"
+            $interfacesConfig += " switchport general allowed vlan add $defaultVlan untagged `n!`n"
         }
     }
     
     for ($i = 1; $i -le $TRKAmount; $i++) {
         $interfacesConfig += "interface TRK$i`n"
-        $interfacesConfig += " loopback-detection enable`n!"
+        $interfacesConfig += " loopback-detection enable `n!"
         if ($i -lt $TRKAmount) {
             $interfacesConfig += "`n"
         }
@@ -320,7 +321,7 @@ unit-type unit 1 network gi uplink none
 unit-type-control-end 
 !
 vlan database
-vlan $($vlan -join ',')
+vlan $($vlanArray -join ',') 
 exit
 loopback-detection enable 
 hostname $hostname
@@ -337,42 +338,55 @@ $gatewayConfig"
     $outputConfig | Out-File -FilePath $outPath
 
 }
+function Test-ValidIPAddress {
+    param (
+        [string]$IPquestion
+    )
 
-#<#
-$default = "default value" # a normal number is writen without parentheses
-$switchQuestion = $(Write-Host "`nWhat switch do you want a config for?  " -ForegroundColor Blue -NoNewline; Read-Host)
-if ([string]::IsNullOrWhiteSpace($switchQuestion)) {
-    $switchQuestion = $default
+    # Regular expression pattern for IPv4 address
+    $IPv4Pattern = "^((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+
+    if ($IPquestion -match $IPv4Pattern) {
+        return $true
+    } else {
+        return $false
+    }
 }
+
+
 Write-Host "
 --------------------------------------------------------------------------------------
 "
-$default = "192.168.0.1" # a normal number is writen without parentheses
-$iPQuestion = $(Write-Host "`nWhat should it's IP be?`nExample: 10.10.10.1  " -ForegroundColor Blue -NoNewline; Read-Host)
-if ([string]::IsNullOrWhiteSpace($iPQuestion)) {
-    $iPQuestion = $default
+$switchQuestion = $(Write-Host "What switch do you want a config for?`n`n" -ForegroundColor Blue -NoNewline; Read-Host)
+Write-Host "
+--------------------------------------------------------------------------------------
+"
+$default = "192.168.1.1" # a normal number is writen without parentheses
+$IPQuestion = $(Write-Host "What should it's IP be?`nDefault: 192.168.1.1`n`n" -ForegroundColor Cyan -NoNewline; Read-Host)
+if ([string]::IsNullOrWhiteSpace($IPQuestion)) {
+    $IPQuestion = $default
 }
+# maybe a for loop?
+<#if ([string]::IsNullOrWhiteSpace($IPQuestion) -or (Test-ValidIPAddress $IPQuestion -eq $false)) {
+    Write-Host "$IPQuestion is not a valid IP adress"
+}#>
 Write-Host "
 --------------------------------------------------------------------------------------
 "
 $default = "255.255.0.0" # a normal number is writen without parentheses
-$subnetQuestion = $(Write-Host "`nWhat should it's subnet mask?  " -ForegroundColor Blue -NoNewline; Read-Host)
+$subnetQuestion = $(Write-Host "What should it's subnet mask?`nDefault: 255.255.0.0`n`n" -ForegroundColor Cyan -NoNewline; Read-Host)
 if ([string]::IsNullOrWhiteSpace($subnetQuestion)) {
     $subnetQuestion = $default
 }
 Write-Host "
 --------------------------------------------------------------------------------------
 "
-$default = "default value" # a normal number is writen without parentheses
-$nameQuestion = $(Write-Host "`nWhat should it's name be?  " -ForegroundColor Blue -NoNewline; Read-Host)
-if ([string]::IsNullOrWhiteSpace($nameQuestion)) {
-    $nameQuestion = $default
-}
+$nameQuestion = $(Write-Host "What should it's name be?`n`n" -ForegroundColor Blue -NoNewline; Read-Host)
 Write-Host "
 --------------------------------------------------------------------------------------
 "
-$default = "default value" # a normal number is writen without parentheses
-$gatewayQuestion = $(Write-Host "`nWhat should it's gateway be?  " -ForegroundColor Blue -NoNewline; Read-Host)
+$default = "" # a normal number is writen without parentheses
+$gatewayQuestion = $(Write-Host "What should it's gateway be?`n`n" -ForegroundColor Cyan -NoNewline; Read-Host)
 if ([string]::IsNullOrWhiteSpace($gatewayQuestion)) {
     $gatewayQuestion = $default
 }
@@ -381,7 +395,7 @@ Write-Host "
 "
 
 $default = 1 # a normal number is writen without parentheses
-$vlanQuestion = $(Write-Host "`nWhat VLAN should be configured on it?`nExample: 3,50,249  " -ForegroundColor Blue -NoNewline; Read-Host)
+$vlanQuestion = $(Write-Host "What VLAN should be configured on it?`nExample: 3,50,249`n`n" -ForegroundColor Cyan -NoNewline; Read-Host)
 if ([string]::IsNullOrWhiteSpace($vlanQuestion)) {
     $vlanQuestion = $default
 }
@@ -389,7 +403,7 @@ Write-Host "
 --------------------------------------------------------------------------------------
 "
 $default = 1 # a normal number is writen without parentheses
-$managementVLANQuestion = $(Write-Host "`nWhat VLAN should act as management VLAN?  " -ForegroundColor Blue -NoNewline; Read-Host)
+$managementVLANQuestion = $(Write-Host "What VLAN should act as management VLAN?`n`n" -ForegroundColor Cyan -NoNewline; Read-Host)
 if ([string]::IsNullOrWhiteSpace($managementVLANQuestion)) {
     $managementVLANQuestion = $default
 }
@@ -397,7 +411,7 @@ Write-Host "
 --------------------------------------------------------------------------------------
 "
 $default = "" # a normal number is writen without parentheses
-$untaggedQuestion = $(Write-Host "`nWhat interfaces shuold be untagged with VLAN?`nExample: 3|4,6,9|1,5,9  " -ForegroundColor Blue -NoNewline; Read-Host)
+$untaggedQuestion = $(Write-Host "What interfaces should be untagged with VLAN?`nExample: 3|4,6,9|1,5,9`n`n" -ForegroundColor Cyan -NoNewline; Read-Host)
 if ([string]::IsNullOrWhiteSpace($untaggedQuestion)) {
     $untaggedQuestion = $default
 }
@@ -405,7 +419,7 @@ Write-Host "
 --------------------------------------------------------------------------------------
 "
 $default = "" # a normal number is writen without parentheses
-$taggedQuestion = $(Write-Host "`nWhat interfaces shuold be tagged with VLAN?`nExample: 3|4,6,9|1,5,9  " -ForegroundColor Blue -NoNewline; Read-Host)
+$taggedQuestion = $(Write-Host "What interfaces should be tagged with VLAN?`nExample: 3|4,6,9|1,5,9`n`n" -ForegroundColor Cyan -NoNewline; Read-Host)
 if ([string]::IsNullOrWhiteSpace($taggedQuestion)) {
     $taggedQuestion = $default
 }
@@ -414,44 +428,13 @@ Write-Host "
 "
 
 $default = "$env:USERPROFILE\Downloads\ArubaConfig" # a normal number is writen without parentheses
-$outpathQuestion = $(Write-Host "`nWhere should the output file be saved?`nDefault: C:\users\USERNAME\downloads\ArubaConfig  " -ForegroundColor Blue -NoNewline; Read-Host)
+$outpathQuestion = $(Write-Host "Where should the output file be saved?`nDefault: C:\users\USERNAME\downloads\ArubaConfig`n`n" -ForegroundColor Cyan -NoNewline; Read-Host)
 if ([string]::IsNullOrWhiteSpace($outpathQuestion)) {
     $outpathQuestion = $default
 }
-
-
-<#
-$switchQuestion = $(Write-Host "`nWhat switch do you want a config for?  " -ForegroundColor Blue -NoNewline; Read-Host)
-$IPQuestion = $(Write-Host "`nWhat should it's IP be?`nExample: 10.10.10.1  " -ForegroundColor Blue -NoNewline; Read-Host)
-$subnetQuestion = $(Write-Host "`nWhat should it's subnet mask?  " -ForegroundColor Blue -NoNewline; Read-Host)
-$nameQuestion = $(Write-Host "`nWhat should it's name be?  " -ForegroundColor Blue -NoNewline; Read-Host)
-$gatewayQuestion = $(Write-Host "`nWhat should it's gateway be?  " -ForegroundColor Blue -NoNewline; Read-Host)
-
-$vlanQuestion = $(Write-Host "`nWhat VLAN should be configured on it?`nExample: 3,50,249  " -ForegroundColor Blue -NoNewline; Read-Host)
-$managementVLANQuestion = $(Write-Host "`nWhat VLAN should act as management VLAN?  " -ForegroundColor Blue -NoNewline; Read-Host)
-$untaggedQuestion = $(Write-Host "`nWhat interfaces shuold be untagged with VLAN?`nExample: 3|4,6,9|1,5,9  " -ForegroundColor Blue -NoNewline; Read-Host)
-$taggedQuestion = $(Write-Host "`nWhat interfaces shuold be tagged with VLAN?`nExample: 3|4,6,9|1,5,9  " -ForegroundColor Blue -NoNewline; Read-Host)
-
-$outpathQuestion = $(Write-Host "`nWhere should the output file be saved?`nDefault: C:\users\USERNAME\downloads\ArubaConfig  " -ForegroundColor Blue -NoNewline; Read-Host)
-#>
-
-
 Write-Host "
-$switchQuestion
-$IPQuestion
-$subnetQuestion
-$nameQuestion
-$gatewayQuestion
-
-$vlanQuestion
-$managementVLANQuestion
-$untaggedQuestion
-$taggedQuestion
-
-$outpathQuestion
+--------------------------------------------------------------------------------------
 "
 
-
+#New-ArubaConfigFile -switch JL682A -IP 192.168.1.1 -subnet 255.255.0.0 -hostName REEEEEEEEEEEEEEE -vlan 3, 50,249 -Tagged "3|4,6,9|1,5,9" -Untagged "3|4,6,9|1,5,9" -gateway 684.4864.846.684 -managementVLAN 50
 New-ArubaConfigFile -switch $switchQuestion -IP $IPQuestion -subnet $subnetQuestion -hostName $nameQuestion -gateway $gatewayQuestion -vlan $vlanQuestion -managementVLAN $managementVLANQuestion -Untagged $untaggedQuestion -Tagged $taggedQuestion -outPath $outpathQuestion
-
-#New-ArubaConfigFile -switch JL682A -IP 10.10.10.1 -subnet 255.255.0.0 -hostName REEEEEEEEEEEEEEE -vlan 3, 50,249 -Tagged "3|4,6,9|1,5,9" -Untagged "3|4,6,9|1,5,9" -gateway 684.4864.846.684 -managementVLAN 50
