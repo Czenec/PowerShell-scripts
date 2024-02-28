@@ -334,7 +334,7 @@ exit
 $gatewayConfig"
 
 
-    $outputConfig | Write-Host
+    #$outputConfig | Write-Host
     $outputConfig | Out-File -FilePath $outPath
 
 }
@@ -353,31 +353,77 @@ function Test-ValidIPAddress {
     }
 }
 
+$switchTable = @{
+    'JL810A' = 'Aruba Instant On 1830 8G Switch JL810A'                             # 4 TRK ports       Group 1
+    'JL811A' = 'Aruba Instant On 1830 8G 4p Class4 PoE 65W Switch JL811A'           # 4 TRK ports       Group 1
+    'JL812A' = 'Aruba Instant On 1830 24G 2SFP Switch JL812A'                       # 8 TRK ports       Group 2
+    'JL813A' = 'Aruba Instant On 1830 24G 12p Class4 PoE 2SFP 195W Switch JL813A'   # 8 TRK ports(?)    Group 2
+    'JL814A' = 'Aruba Instant On 1830 48G 4SFP Switch JL814A'                       # 16 TRK ports      Group 5
+    'JL815A' = 'Aruba Instant On 1830 48G 24p Class4 PoE 4SFP 370W Switch JL815A'   # 16 TRK ports      Group 5
+
+    'JL680A' = 'Aruba Instant On 1930 8G 2SFP Switch JL680A'                        # 4 TRK ports       Group 3
+    'JL681A' = 'Aruba Instant On 1930 8G Class4 PoE 2SFP 124W Switch JL681A'        # 4 TRK ports       Group 3
+    'JL682A' = 'Aruba Instant On 1930 24G 4SFP/SFP+ Switch JL682A'                  # 8 TRK ports       Group 4
+    'JL683A' = 'Aruba Instant On 1930 24G Class4 PoE 4SFP/SFP+ 195W Switch JL683A'  # 8 TRK ports       Group 4
+    'JL683B' = 'Aruba Instant On 1930 24G Class4 PoE 4SFP/SFP+ 195W Switch JL683B'  # 8 TRK ports       Group 4
+    'JL684A' = 'Aruba Instant On 1930 24G Class4 PoE 4SFP/SFP+ 370W Switch JL684A'  # 8 TRK ports       Group 4
+    'JL684B' = 'Aruba Instant On 1930 24G Class4 PoE 4SFP/SFP+ 370W Switch JL684B'  # 8 TRK ports       Group 4
+    'JL685A' = 'Aruba Instant On 1930 48G 4SFP/SFP+ Switch JL685A'                  # 16 TRK ports      Group 5
+    'JL686A' = 'Aruba Instant On 1930 48G Class4 PoE 4SFP/SFP+ 370W Switch JL686A'  # 16 TRK ports      Group 5
+    'JL686B' = 'Aruba Instant On 1930 48G Class4 PoE 4SFP/SFP+ 370W Switch JL686B'  # 16 TRK ports      Group 5
+<#
+    'JL805A' = 'Aruba Instant On 1960 12XGT 4SFP+ Switch JL805A'
+    'JL806A' = 'Aruba Instant On 1960 24G 2XGT 2SFP+ Switch JL806A'
+    'JL807A' = 'Aruba Instant On 1960 24G 20p Class4 4p Class6 PoE 2XGT 2SFP+ 370W Switch JL807A'
+    'JL808A' = 'Aruba Instant On 1960 48G 2XGT 2SFP+ Switch JL808A'
+    'JL809A' = 'Aruba Instant On 1960 48G 40p Class4 8p Class6 PoE 2XGT 2SFP+ 600W Switch JL809A'
+    'S0F35A' = 'Aruba Instant On 1960 8p 1G Class 4 4p SR1G/2.5G Class 6 PoE 2p 10GBASE-T 2p SFP+ 480W Switch S0F35A'
+#>
+} # Add more switch codes and descriptions as needed
 
 Write-Host "
 --------------------------------------------------------------------------------------
 "
 $switchQuestion = $(Write-Host "What switch do you want a config for?`n`n" -ForegroundColor Blue -NoNewline; Read-Host)
+Write-Host $switchTable[$switchQuestion]
+# Error for if the switch code is invalid
+if ($null -eq $switchTable[$switchQuestion]) {
+    Throw "Unknown switch code: $switch"
+}
+do {
+    $switchQuestion = $(Write-Host "What switch do you want a config for?`n`n" -ForegroundColor Blue -NoNewline; Read-Host)
+    if ($null -eq $switchTable[$switchQuestion]) {
+        Write-Host "$switchQuestion is not a valid switch ID" -ForegroundColor Blue
+    }
+} while ($null -eq $switchTable[$switchQuestion])
 Write-Host "
 --------------------------------------------------------------------------------------
 "
-$default = "192.168.1.1" # a normal number is writen without parentheses
-$IPQuestion = $(Write-Host "What should it's IP be?`nDefault: 192.168.1.1`n`n" -ForegroundColor Cyan -NoNewline; Read-Host)
-if ([string]::IsNullOrWhiteSpace($IPQuestion)) {
-    $IPQuestion = $default
-}
-# maybe a for loop?
-<#if ([string]::IsNullOrWhiteSpace($IPQuestion) -or (Test-ValidIPAddress $IPQuestion -eq $false)) {
-    Write-Host "$IPQuestion is not a valid IP adress"
-}#>
+$default = "192.168.1.1" # a normal number is written without parentheses
+$IPQuestion = ''
+do {
+    $IPQuestion = $(Write-Host "What should it's IP be?`nDefault:  192.168.1.1`n`n" -ForegroundColor Cyan -NoNewline; Read-Host)
+    if ([string]::IsNullOrWhiteSpace($IPQuestion)) {
+        $IPQuestion = $default
+    } elseif (-not (Test-ValidIPAddress $IPQuestion)) {
+        Write-Host "$IPQuestion is not a valid IP address`n" -ForegroundColor Cyan
+        $IPQuestion = ''
+    }
+} while (-not (Test-ValidIPAddress $IPQuestion))
 Write-Host "
 --------------------------------------------------------------------------------------
 "
-$default = "255.255.0.0" # a normal number is writen without parentheses
-$subnetQuestion = $(Write-Host "What should it's subnet mask?`nDefault: 255.255.0.0`n`n" -ForegroundColor Cyan -NoNewline; Read-Host)
-if ([string]::IsNullOrWhiteSpace($subnetQuestion)) {
-    $subnetQuestion = $default
-}
+$default = "255.255.0.0" # a normal number is written without parentheses
+$subnetQuestion = ''
+do {
+    $subnetQuestion = $(Write-Host "What should it's subnet mask?`nDefault: 255.255.0.0`n`n" -ForegroundColor Cyan -NoNewline; Read-Host)
+    if ([string]::IsNullOrWhiteSpace($subnetQuestion)) {
+        $subnetQuestion = $default
+    } elseif (-not (Test-ValidIPAddress $subnetQuestion)) {
+        (Write-Host "$subnetQuestion is not a valid subnet`n" -ForegroundColor Cyan)
+        $subnetQuestion = ''
+    }
+} while (-not (Test-ValidIPAddress $subnetQuestion))
 Write-Host "
 --------------------------------------------------------------------------------------
 "
@@ -385,15 +431,20 @@ $nameQuestion = $(Write-Host "What should it's name be?`n`n" -ForegroundColor Bl
 Write-Host "
 --------------------------------------------------------------------------------------
 "
-$default = "" # a normal number is writen without parentheses
-$gatewayQuestion = $(Write-Host "What should it's gateway be?`n`n" -ForegroundColor Cyan -NoNewline; Read-Host)
-if ([string]::IsNullOrWhiteSpace($gatewayQuestion)) {
-    $gatewayQuestion = $default
-}
+$default = "192.168.1.1" # a normal number is written without parentheses
+$gatewayQuestion = ''
+do {
+    $gatewayQuestion = $(Write-Host "What should it's gateway be?`n`n" -ForegroundColor Cyan -NoNewline; Read-Host)
+    if ([string]::IsNullOrWhiteSpace($gatewayQuestion)) {
+        $gatewayQuestion = $default
+    } elseif (-not (Test-ValidIPAddress $gatewayQuestion)) {
+        (Write-Host "$gatewayQuestion is not a valid gateway`n" -ForegroundColor Cyan)
+        $gatewayQuestion = ''
+    }
+} while (-not (Test-ValidIPAddress $gatewayQuestion))
 Write-Host "
 --------------------------------------------------------------------------------------
 "
-
 $default = 1 # a normal number is writen without parentheses
 $vlanQuestion = $(Write-Host "What VLAN should be configured on it?`nExample: 3,50,249`n`n" -ForegroundColor Cyan -NoNewline; Read-Host)
 if ([string]::IsNullOrWhiteSpace($vlanQuestion)) {
@@ -435,6 +486,7 @@ if ([string]::IsNullOrWhiteSpace($outpathQuestion)) {
 Write-Host "
 --------------------------------------------------------------------------------------
 "
+#>
 
-#New-ArubaConfigFile -switch JL682A -IP 192.168.1.1 -subnet 255.255.0.0 -hostName REEEEEEEEEEEEEEE -vlan 3, 50,249 -Tagged "3|4,6,9|1,5,9" -Untagged "3|4,6,9|1,5,9" -gateway 684.4864.846.684 -managementVLAN 50
+#New-ArubaConfigFile -switch JL682A -IP 192.168.1.1 -subnet 255.255.0.0 -hostName Example -vlan 3, 50,249 -Tagged "3|4,6,9|1,5,9" -Untagged "3|4,6,9|1,5,9" -gateway 684.486.846.684 -managementVLAN 50
 New-ArubaConfigFile -switch $switchQuestion -IP $IPQuestion -subnet $subnetQuestion -hostName $nameQuestion -gateway $gatewayQuestion -vlan $vlanQuestion -managementVLAN $managementVLANQuestion -Untagged $untaggedQuestion -Tagged $taggedQuestion -outPath $outpathQuestion
