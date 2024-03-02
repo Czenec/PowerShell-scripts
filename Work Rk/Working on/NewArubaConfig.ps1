@@ -227,6 +227,8 @@ interface vlan $v
             }
             $configurations[$interface]['untaggedVlans'] += $vlanForInterface
             $configurations[$interface]['pvid'] = $vlanForInterface
+            
+            Write-Host $configurations[$interface]['pvid'] "-line 231"
         }
     }
 
@@ -235,6 +237,9 @@ interface vlan $v
         $interfacesTagged = $interfaceTaggedVLANArray[$i] -split ','
         foreach ($interface in $interfacesTagged) {
             $vlanForInterface = $vlanArray[$i]
+            
+            Write-Host $vlanArray[$i] "-line 241"
+
             if (-not $configurations.ContainsKey($interface)) {
                 $configurations[$interface] = $interfaceConfigTemplate.Clone()
             }
@@ -247,8 +252,10 @@ interface vlan $v
 
     # If pvid is not set, use the last tagged VLAN
     foreach ($interfaceConfig in $configurations.Values) {
+        Write-Host "foreach test -line 255"
         if ($interfaceConfig['pvid'] -eq '1' -and $interfaceConfig['taggedVlans'].Count -gt 0) {
             $interfaceConfig['pvid'] = $interfaceConfig['taggedVlans'][-1]
+            Write-Host "if test -line 258"
         }
     }
 
@@ -262,25 +269,30 @@ interface vlan $v
             $interfacesConfig += "interface $interface`n"
             $interfacesConfig += " loopback-detection enable `n"
 
-            $interfacesConfig += " switchport general allowed vlan add "
-            foreach ($index in 0..($configurations[$interface]['untaggedVlans'].Count - 1)) {
-                $vlan = $configurations[$interface]['untaggedVlans'][$index]
-                $interfacesConfig += "$vlan"
-                if ($index -lt ($configurations[$interface]['untaggedVlans'].Count - 1)) {
-                    $interfacesConfig += ","
-                }
-            }            
-            $interfacesConfig += " untagged `n"
+            if (-not ([string]::IsNullOrWhiteSpace($configurations[$interface]['untaggedVlans']))) {
+                $interfacesConfig += " switchport general allowed vlan add "
+                foreach ($index in 0..($configurations[$interface]['untaggedVlans'].Count - 1)) {
+                    $vlan = $configurations[$interface]['untaggedVlans'][$index]
+                    $interfacesConfig += "$vlan"
+                    if ($index -lt ($configurations[$interface]['untaggedVlans'].Count - 1)) {
+                        $interfacesConfig += ","
+                    }
+                }            
+                $interfacesConfig += " untagged `n"
+            }
+            
+            if (-not ([string]::IsNullOrWhiteSpace($configurations[$interface]['taggedVlans']))) {
+                $interfacesConfig += " switchport general allowed vlan add "
+                foreach ($index in 0..($configurations[$interface]['taggedVlans'].Count - 1)) {
+                    $vlan = $configurations[$interface]['taggedVlans'][$index]
+                    $interfacesConfig += "$vlan"
+                    if ($index -lt ($configurations[$interface]['taggedVlans'].Count - 1)) {
+                        $interfacesConfig += ","
+                    }
+                }            
+                $interfacesConfig += " tagged `n"
+            }
 
-            $interfacesConfig += " switchport general allowed vlan add "
-            foreach ($index in 0..($configurations[$interface]['taggedVlans'].Count - 1)) {
-                $vlan = $configurations[$interface]['taggedVlans'][$index]
-                $interfacesConfig += "$vlan"
-                if ($index -lt ($configurations[$interface]['taggedVlans'].Count - 1)) {
-                    $interfacesConfig += ","
-                }
-            }            
-            $interfacesConfig += " tagged `n"
             $interfacesConfig += " switchport general pvid $($configurations[$interface]['pvid']) `n!`n"
         }
         elseif ($i -le ($interfaceAmount + $fiberAmount)) {
@@ -380,20 +392,15 @@ $switchTable = @{
     'S0F35A' = 'Aruba Instant On 1960 8p 1G Class 4 4p SR1G/2.5G Class 6 PoE 2p 10GBASE-T 2p SFP+ 480W Switch S0F35A'
 #>
 } # Add more switch codes and descriptions as needed
-
+<#
 Write-Host "
 --------------------------------------------------------------------------------------
 "
-$switchQuestion = $(Write-Host "What switch do you want a config for?`n`n" -ForegroundColor Blue -NoNewline; Read-Host)
-Write-Host $switchTable[$switchQuestion]
-# Error for if the switch code is invalid
-if ($null -eq $switchTable[$switchQuestion]) {
-    Throw "Unknown switch code: $switch"
-}
+$switchQuestion = ''
 do {
     $switchQuestion = $(Write-Host "What switch do you want a config for?`n`n" -ForegroundColor Blue -NoNewline; Read-Host)
     if ($null -eq $switchTable[$switchQuestion]) {
-        Write-Host "$switchQuestion is not a valid switch ID" -ForegroundColor Blue
+        Write-Host "$switchQuestion is not a valid switch ID`n" -ForegroundColor Blue
     }
 } while ($null -eq $switchTable[$switchQuestion])
 Write-Host "
@@ -488,5 +495,5 @@ Write-Host "
 "
 #>
 
-#New-ArubaConfigFile -switch JL682A -IP 192.168.1.1 -subnet 255.255.0.0 -hostName Example -vlan 3, 50,249 -Tagged "3|4,6,9|1,5,9" -Untagged "3|4,6,9|1,5,9" -gateway 684.486.846.684 -managementVLAN 50
-New-ArubaConfigFile -switch $switchQuestion -IP $IPQuestion -subnet $subnetQuestion -hostName $nameQuestion -gateway $gatewayQuestion -vlan $vlanQuestion -managementVLAN $managementVLANQuestion -Untagged $untaggedQuestion -Tagged $taggedQuestion -outPath $outpathQuestion
+New-ArubaConfigFile -switch JL682A -IP 192.168.1.1 -subnet 255.255.0.0 -hostName Example -vlan 3, 50,249 -Tagged "3|4,6,9|1,5,9" <#-Untagged "3|4,6,9|1,5,9"#> -gateway 684.486.846.684 -managementVLAN 50
+#New-ArubaConfigFile -switch $switchQuestion -IP $IPQuestion -subnet $subnetQuestion -hostName $nameQuestion -gateway $gatewayQuestion -vlan $vlanQuestion -managementVLAN $managementVLANQuestion -Untagged $untaggedQuestion -Tagged $taggedQuestion -outPath $outpathQuestion
