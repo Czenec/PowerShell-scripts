@@ -227,8 +227,6 @@ interface vlan $v
             }
             $configurations[$interface]['untaggedVlans'] += $vlanForInterface
             $configurations[$interface]['pvid'] = $vlanForInterface
-            
-            Write-Host $configurations[$interface]['pvid'] "-line 231"
         }
     }
 
@@ -237,14 +235,12 @@ interface vlan $v
         $interfacesTagged = $interfaceTaggedVLANArray[$i] -split ','
         foreach ($interface in $interfacesTagged) {
             $vlanForInterface = $vlanArray[$i]
-            
-            Write-Host $vlanArray[$i] "-line 241"
 
             if (-not $configurations.ContainsKey($interface)) {
                 $configurations[$interface] = $interfaceConfigTemplate.Clone()
             }
             $configurations[$interface]['taggedVlans'] += $vlanForInterface
-            if ($configurations[$interface]['pvid'] -eq '1') {
+            if ([String]::IsNullOrWhiteSpace($configurations[$interface]['pvid'])) {
                 $configurations[$interface]['pvid'] = $vlanForInterface
             }
         }
@@ -252,10 +248,8 @@ interface vlan $v
 
     # If pvid is not set, use the last tagged VLAN
     foreach ($interfaceConfig in $configurations.Values) {
-        Write-Host "foreach test -line 255"
         if ($interfaceConfig['pvid'] -eq '1' -and $interfaceConfig['taggedVlans'].Count -gt 0) {
             $interfaceConfig['pvid'] = $interfaceConfig['taggedVlans'][-1]
-            Write-Host "if test -line 258"
         }
     }
 
@@ -392,7 +386,7 @@ $switchTable = @{
     'S0F35A' = 'Aruba Instant On 1960 8p 1G Class 4 4p SR1G/2.5G Class 6 PoE 2p 10GBASE-T 2p SFP+ 480W Switch S0F35A'
 #>
 } # Add more switch codes and descriptions as needed
-<#
+
 Write-Host "
 --------------------------------------------------------------------------------------
 "
@@ -400,7 +394,7 @@ $switchQuestion = ''
 do {
     $switchQuestion = $(Write-Host "What switch do you want a config for?`n`n" -ForegroundColor Blue -NoNewline; Read-Host)
     if ($null -eq $switchTable[$switchQuestion]) {
-        Write-Host "$switchQuestion is not a valid switch ID`n" -ForegroundColor Blue
+        Write-Host "$switchQuestion is not a valid switch ID`n" -ForegroundColor Red
     }
 } while ($null -eq $switchTable[$switchQuestion])
 Write-Host "
@@ -493,7 +487,7 @@ if ([string]::IsNullOrWhiteSpace($outpathQuestion)) {
 Write-Host "
 --------------------------------------------------------------------------------------
 "
-#>
 
-New-ArubaConfigFile -switch JL682A -IP 192.168.1.1 -subnet 255.255.0.0 -hostName Example -vlan 3, 50,249 -Tagged "3|4,6,9|1,5,9" <#-Untagged "3|4,6,9|1,5,9"#> -gateway 684.486.846.684 -managementVLAN 50
-#New-ArubaConfigFile -switch $switchQuestion -IP $IPQuestion -subnet $subnetQuestion -hostName $nameQuestion -gateway $gatewayQuestion -vlan $vlanQuestion -managementVLAN $managementVLANQuestion -Untagged $untaggedQuestion -Tagged $taggedQuestion -outPath $outpathQuestion
+
+#New-ArubaConfigFile -switch JL682A -IP 192.168.1.1 -subnet 255.255.0.0 -hostName Example -vlan 3, 50,249 -Tagged "3|4,6,9|1,5,9" -Untagged "3|4,6,9|1,5,9" -gateway 684.486.846.684 -managementVLAN 50
+New-ArubaConfigFile -switch $switchQuestion -IP $IPQuestion -subnet $subnetQuestion -hostName $nameQuestion -gateway $gatewayQuestion -vlan $vlanQuestion -managementVLAN $managementVLANQuestion -Untagged $untaggedQuestion -Tagged $taggedQuestion -outPath $outpathQuestion
