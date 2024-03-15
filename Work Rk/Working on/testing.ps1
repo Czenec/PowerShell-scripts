@@ -1,18 +1,6 @@
-    # Define folder path and user identity
-$name = "Test-NewUser_PS"
-$folderPath = "C:\"
-$identity = "alenybe@ringsaker.kommune.no"
-    # Create new folder
-New-Item -Path $folderPath -Name $name -ItemType Directory
+Get-CimInstance -ClassName win32_userprofile |Select-Object -ExpandProperty LocalPath
 
-    # Get current ACL
-$acl = Get-Acl -Path $folderPath
-    # Disable inheritance
-$acl.SetAccessRuleProtection($true, $false)
-    # Create FileSystemAccessRule for the user with Modify access
-$accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule($identity, "Modify", "ContainerInherit,ObjectInherit", "None", "Allow")
-    # Add access rule to ACL
-$acl.AddAccessRule($accessRule)
+$userName = $(Write-Host "What user do you wish to delete?  " -ForegroundColor Blue -NoNewline; Read-Host)
 
-# Apply modified ACL to folder
-Set-Acl -Path $folderPath -AclObject $acl
+$outName = Get-CimInstance -Class Win32_UserProfile | Where-Object { $_.LocalPath.split('\')[-1] -eq $userName } #| Remove-CimInstance
+Write-Host $outName
