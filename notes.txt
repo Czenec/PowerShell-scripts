@@ -1,0 +1,7 @@
+This doesnt work, i want to make it work so i can have an admin terminal in Visual Studio, but thats for a later time.
+
+$c = Get-Credential
+
+Register-PSSessionConfiguration -Name VisualStudioAdminSession -RunAsCredential $c
+
+Enter-PSSession -Name VisualStudioAdminSession
