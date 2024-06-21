@@ -45,42 +45,31 @@ function Get-UIdate {
 }
 
 
+# Get user executing this script and check it they are Domain Admins
+$runningUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name # Get DOMAIN\user
+$runningUser = $runningUser.Split('\')[-1] # Remove DOMAIN\
 
+[bool]$isDomainAdmin = (Get-ADUser $runningUser -Properties memberof).memberof -contains (Get-ADGroup "Domain Admins")
+If ($isDomainAdmin) {Write-Host "Kjører som Domain Admins"}
+else {Throw "Kan ikke kjøre uten å være i Domain Admins"}
 
-#$Credentials = Get-Credential ringsaker\adm_chri
-<#
-$identity = $(Write-Host "What is the username of the owner to this Home directory?`n`n" -ForegroundColor Cyan -NoNewline; Read-Host)
-if ([string]::IsNullOrWhiteSpace($identity)) {
-    Throw "An input is needed."
-}
-if ($null -eq (Get-ADuser $identity)) {
-    Throw "Could not find $identity"
-}
-#><#
-if ($false -eq (Invoke-Command -ComputerName "rkdrift" -Credential $Credentials {
-    Get-ADuser "$identity"
-})) {
-    Throw "Could not find $identity"
-}#>
-
-
-
-
+$testSikker = [System.Net.Sockets.TcpClient]::new().ConnectAsync("VO40FAG02", 3389).Wait(100)
+If (-not $testSikker) {Throw "Kan ikke kjøre utenfor sikker sone"}
 
 
 $userPath = "OU=Studenter,OU=Manuelt opprettet,OU=ringsaker.kommune,DC=ringsaker,DC=kommune,DC=no"
 
-$GivenName = <#Read-Host "`nFornavn`n"#> "testuserChr"
-$Surname = <#Read-Host "`nEtternavn`n"#> "testuserLan"
-$Name = "$GivenName $Surname"
+$givenName = <#Read-Host "`nFornavn`n"#> "testuserChr"
+$surname = <#Read-Host "`nEtternavn`n"#> "testuserLan"
+$name = "$GivenName $Surname"
 $username = <#Read-Host "`nBrukernavn`n"#> "testuserchrlan"
 
 $mobilePhone = Read-Host "`nTelefonnummer`n"
 $description = Read-Host "`nBruker beskrivelse`neks: RE424-Psykisk helse og rustjenester - Sykepleierstudent`n"
 $department = Read-Host "`nOffice felt`neks: RE424-Psykisk helse og rustjenester`n"
 
-$PasswordLength = "8"
-$RandomPassword = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count $PasswordLength | ForEach-Object {[char]$_})
+$passwordLength = "8"
+$randomPassword = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count $PasswordLength | ForEach-Object {[char]$_})
 
 $accountExpiration = Get-UIdate
 
@@ -88,8 +77,8 @@ $accountExpiration = Get-UIdate
 $splat = @{
     Name = $name
     DisplayName = $name
-    GivenName = $GivenName
-    Surname = $Surname
+    GivenName = $givenName
+    Surname = $surname
     SamAccountName = $username
 
     MobilePhone = $mobilePhone
@@ -99,18 +88,14 @@ $splat = @{
 
     Path = $userPath
     AccountExpirationDate = $accountExpiration
-    AccountPassword = (Read-Host -AsSecureString $RandomPassword)
+    AccountPassword = (ConvertTo-SecureString $randomPassword -AsPlainText -Force)
     ChangePasswordAtLogon = $false
+    ScriptPath = "HSVO40.BAT"
     Enabled = $true
 }
 
 $reEnhet = Read-Host "`nHvilken RE enhet?`neks: re424`n"
 $user = New-ADUser @splat -Confirm
-
-<#$userParams = @{
-    Identity = "CN=$name,OU=Studenter,OU=Manuelt opprettet,OU=ringsaker.kommune,DC=ringsaker,DC=kommune,DC=no"
-}
-$user = Get-ADUser @userParams #>
 
 
 # Check if the input matches the expected format (starts with "re" followed by digits)
@@ -124,30 +109,24 @@ $distGroupParams = @{
     SearchScope = 1
     Filter = "name -like '$($reEnhet)*'"
 }
-# Attempt to retrieve the group
-try {
-    $distGroup = Get-ADGroup @distGroupParams -ErrorAction Stop
 
-    # Check the number of groups found
-    if ($distGroup.Count -eq 0) {
-        throw "No groups were found matching the criteria: $reEnhet"
-    }
-    elseif ($distGroup.Count -gt 1) {
-        # List all groups found for problem-solving purposes
-        Write-Host "Groups found:" -ForegroundColor Blue
-        Write-Host $($distGroup.Name -join "`r`n")
-        throw "More than one group was found matching the criteria: $reEnhet"
-    }
-    # If exactly one group is found, continue with the script
-    Write-Host "Group found:" -ForegroundColor Blue
-    Write-Host $($distGroup.Name)
+# Attempt to retrieve the group
+$distGroup = Get-ADGroup @distGroupParams -ErrorAction Stop
+
+# Check the number of groups found
+if ($distGroup.Count -eq 0) {
+    throw "Fant ingen dist-grupper som matcher: $reEnhet"
 }
-catch {
-    # Handle errors
-    Write-Error "Error: $_"
-    # Stop the script execution
-    exit 1
+elseif ($distGroup.Count -gt 1) {
+    # List all groups found for problem-solving purposes
+    Write-Host "Grupper funnet:" -ForegroundColor Blue
+    Write-Host $($distGroup.Name -join "`r`n")
+    throw "Fant flere dist-grupper som matcher: $reEnhet"
 }
+# If exactly one group is found, continue with the script
+Write-Host "Dist-gruppe funnet:" -ForegroundColor Blue
+Write-Host $($distGroup.Name)
+
 Add-ADGroupMember -Identity $distGroup -Members $user
 
 # Set paramaters for Get-ADGroup
@@ -156,49 +135,29 @@ $tilgangGroupParams = @{
     SearchScope = 1
     Filter = "name -like '$($reEnhet)*'"
 }
-# Attempt to retrieve the group
-try {
-    $tilgangGroup = Get-ADGroup $tilgangGroupParams -ErrorAction Stop
 
-    # Check the number of groups found
-    if ($tilgangGroup.Count -eq 0) {
-        throw "No groups were found matching the criteria: $reEnhet"
-    }
-    elseif ($tilgangGroup.Count -gt 1) {
-        # List all groups found for problem-solving purposes
-        Write-Host "Groups found:" -ForegroundColor Blue
-        Write-Host $($tilgangGroup.Name -join "`r`n")
-        throw "More than one group was found matching the criteria: $reEnhet"
-    }
-    # If exactly one group is found, continue with the script
-    Write-Host "Group found:" -ForegroundColor Blue
-    Write-Host $($tilgangGroup.Name)
+# Attempt to retrieve the group
+$tilgangGroup = Get-ADGroup $tilgangGroupParams -ErrorAction Stop
+
+# Check the number of groups found
+if ($tilgangGroup.Count -eq 0) {
+    throw "Fant ingen tilgangs-grupper som matcher: $reEnhet"
 }
-catch {
-    # Handle errors
-    Write-Error "Error: $_"
-    # Stop the script execution
-    exit 1
+elseif ($tilgangGroup.Count -gt 1) {
+    # List all groups found for problem-solving purposes
+    Write-Host "Grupper funnet:" -ForegroundColor Blue
+    Write-Host $($tilgangGroup.Name -join "`r`n")
+    throw "Fant flere tilgangs-grupper som matcher: $reEnhet"
 }
+# If exactly one group is found, continue with the script
+Write-Host "Tilgangs-gruppe funnet:" -ForegroundColor Blue
+Write-Host $($tilgangGroup.Name)
+
 Add-ADGroupMember -Identity $tilgangGroup -Members $user
 
 
-<# Define identity
-$identity = "alenybe"
-$identitySID = (Get-ADUser -Identity $identity).sid.Value
-#$identity += "@ringsaker.kommune.no"
-#
-$identityParams = @{
-    Identity = "CN=$name,OU=Studenter,OU=Manuelt opprettet,OU=ringsaker.kommune,DC=ringsaker,DC=kommune,DC=no"
-}
-$identitySID = (Get-ADUser @identityParams).sid.Value#>
+
 $identitySID = ($user).sid.Value
-
-
-<# Define folder path
-$sourcePath = "C:\" #'\\rkf1\ADM_CHRI$\testAccess'
-$folderName = "$($GivenName)_$($Surname)-$($username)"
-$FolderPath = "$sourcePath\$folderName" #>
 
 $scriptBlock = {
     param($drivePath)
@@ -211,31 +170,24 @@ $scriptBlock = {
         Filter = "$($Using:reEnhet)*"
     }
     # Attempt to retrieve the folder
-    try {
-        $sourcePath = Get-ChildItem @FolderParams -Directory
-    
-        # Check the number of folders found
-        if ($sourcePath.Count -eq 0) {
-            throw "No folders were found matching the criteria: $Using:reEnhet"
-        }
-        elseif ($sourcePath.Count -gt 1) {
-            # List all folders found for problem-solving purposes
-            Write-Host "Groups found:" -ForegroundColor Blue
-            Write-Host $($sourcePath.Name -join "`r`n")
-            throw "More than one folder was found matching the criteria: $Using:reEnhet"
-        }
-        # If exactly one folder is found, continue with the script
-        Write-Host "Folder found:" -ForegroundColor Blue
-        Write-Host $($sourcePath.Name)
-        $sourcePath = "$($basePath)\$($sourcePath)"
-        Write-Host $sourcePath
+    $sourcePath = Get-ChildItem @FolderParams -Directory
+
+    # Check the number of folders found
+    if ($sourcePath.Count -eq 0) {
+        throw "Fant ingen mapper som matcher $Using:reEnhet på $($drivePath)"
     }
-    catch {
-        # Handle errors
-        Write-Error "Error: $_"
-        # Stop the script execution
-        exit 1
+    elseif ($sourcePath.Count -gt 1) {
+        # List all folders found for problem-solving purposes
+        Write-Host "Mapper funnet:" -ForegroundColor Blue
+        Write-Host $($sourcePath.Name -join "`r`n")
+        throw "Fant flere mapper som matcher $Using:reEnhet på $($drivePath)"
     }
+    # If exactly one folder is found, continue with the script
+    Write-Host "Mappe funnet på $($drivePath):" -ForegroundColor Blue
+    Write-Host $($sourcePath.Name)
+    $sourcePath = "$($basePath)\$($sourcePath)"
+    Write-Host $sourcePath
+
 
     #$sourcePath = "C:\" #'\\rkf1\ADM_CHRI$\testAccess'
     $folderName = "$($Using:GivenName)_$($Using:Surname)-$($Using:username)"
@@ -253,28 +205,26 @@ $scriptBlock = {
     # Create new folder
     New-Item -Path $sourcePath -Name $folderName -ItemType Directory
     # Create new subfolders 
-    New-Item -Path "$folderPath" -Name "Excel" -ItemType "directory"
-    New-Item -Path "$folderPath" -Name "Fagserver" -ItemType "directory"
-    New-Item -Path "$folderPath" -Name "MALER" -ItemType "directory"
-    New-Item -Path "$folderPath" -Name "Mine datakilder" -ItemType "directory"
-    New-Item -Path "$folderPath" -Name "Ny bruker" -ItemType "directory"
-    New-Item -Path "$folderPath" -Name "Powerpnt" -ItemType "directory"
-    New-Item -Path "$folderPath" -Name "Privat" -ItemType "directory"
-    New-Item -Path "$folderPath" -Name "Temp" -ItemType "directory"
-    New-Item -Path "$folderPath" -Name "Tmp" -ItemType "directory"
-    New-Item -Path "$folderPath" -Name "varebest" -ItemType "directory"
-    New-Item -Path "$folderPath" -Name "Word" -ItemType "directory"
+    $subFolders = @("Excel", "Fagserver", "MALER", "Mine datakilder", "Powerpoint", "Privat", "Temp", "Tmp", "varebest", "Word")
+    foreach ($subFolder in $subFolders) {
+        New-Item -Path "$folderPath" -Name $subFolder -ItemType Directory
+    }
 
 
-    # $acl = Get-Acl -Path $FolderPath # Get current ACL
+    # Create a new ACL
+    $acl = New-Object System.Security.AccessControl.DirectorySecurity
 
-    $acl.SetAccessRuleProtection($true, $false) # Disable inheritance
-    
+    # Disable inheritance
+    $acl.SetAccessRuleProtection($true, $false)
+
     # Create FileSystemAccessRule for system and administrators with FullControl
-    $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule("SYSTEM", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
-    $acl.AddAccessRule($accessRule) # Add access rule to ACL
-    $accessRule = New-Object System.Security.AccessControl.FileSystemAccessRule("$Administrators", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
-    $acl.AddAccessRule($accessRule) # Add access rule to ACL
+    $accessRules = @(
+        New-Object System.Security.AccessControl.FileSystemAccessRule("SYSTEM", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"),
+        New-Object System.Security.AccessControl.FileSystemAccessRule($Administrators, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+    )
+    foreach ($accessRule in $accessRules) {
+        $acl.AddAccessRule($accessRule)
+    }
     
     $accessOwner = New-Object System.Security.Principal.Ntaccount("$folderOwner")
     $acl.SetOwner($accessOwner)
@@ -285,15 +235,29 @@ $scriptBlock = {
     
     # Give user modify access using bash because PS doesn't support using SID
     icacls $FolderPath /grant *$Using:identitySID":(M)"
+
+    # Make folder a share
+    New-SmbShare -Name "$($Using:username)$" -Path "$FolderPath" -FullAccess "Everyone"
     
     (Get-Acl -Path $FolderPath).Access | Format-Table IdentityReference,FileSystemRights,AccessControlType,IsInherited,InheritanceFlags -AutoSize
 }
 
 # Run Invoke-Command for rkf1hs with E:\DATA01
-Invoke-Command -ComputerName rkf1hs -ScriptBlock $scriptBlock -ArgumentList "E:"
+try {Invoke-Command -ComputerName rkf1hs -ScriptBlock $scriptBlock -ArgumentList "E:"}
+catch {
+    Write-Error "Error oppsto på rkf1hs: $_"
+    $addDomain = Read-Host "Vil du fortsette med rkhsdata?
+Valg:
+        (Y) Ja (standard)
+        (N) Nei
+
+"
+}
+if (($addDomain -eq "N") -or ($addDomain -eq "Nei") -or ($addDomain -eq "No")) {Exit 1}
 
 # Run Invoke-Command for rkhsdata with D:\DATA01
-Invoke-Command -ComputerName rkhsdata -ScriptBlock $scriptBlock -ArgumentList "D:"
+try {Invoke-Command -ComputerName rkhsdata -ScriptBlock $scriptBlock -ArgumentList "D:"}
+catch {Write-Error "Error oppsto på rkhsdata: $_"}
 
 
 
