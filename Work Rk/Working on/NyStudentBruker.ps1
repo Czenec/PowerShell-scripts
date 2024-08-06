@@ -95,7 +95,7 @@ $splat = @{
 }
 
 $reEnhet = Read-Host "`nHvilken RE enhet?`neks: re424`n"
-$user = New-ADUser @splat -Confirm
+
 
 
 # Check if the input matches the expected format (starts with "re" followed by digits)
@@ -127,7 +127,7 @@ elseif ($distGroup.Count -gt 1) {
 Write-Host "Dist-gruppe funnet:" -ForegroundColor Blue
 Write-Host $($distGroup.Name)
 
-Add-ADGroupMember -Identity $distGroup -Members $user
+
 
 # Set paramaters for Get-ADGroup
 $tilgangGroupParams = @{
@@ -153,6 +153,10 @@ elseif ($tilgangGroup.Count -gt 1) {
 Write-Host "Tilgangs-gruppe funnet:" -ForegroundColor Blue
 Write-Host $($tilgangGroup.Name)
 
+
+Write-Host "`nOppretter bruker og tildeler grupper" -ForegroundColor Blue
+$user = New-ADUser @splat -Confirm
+Add-ADGroupMember -Identity $distGroup -Members $user
 Add-ADGroupMember -Identity $tilgangGroup -Members $user
 
 
